@@ -1,0 +1,11 @@
+{
+  "/_not-found/page": "app/_not-found/page.js",
+  "/admin/page": "app/admin/page.js",
+  "/auth/page": "app/auth/page.js",
+  "/auth/callback/route": "app/auth/callback/route.js",
+  "/dashboard/page": "app/dashboard/page.js",
+  "/dashboard/payment/page": "app/dashboard/payment/page.js",
+  "/dashboard/pricing/page": "app/dashboard/pricing/page.js",
+  "/dashboard/stamp/page": "app/dashboard/stamp/page.js",
+  "/page": "app/page.js"
+}
