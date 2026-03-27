@@ -51,7 +51,7 @@ export default function StampPage() {
 
   const isPremium = profile?.plan === 'premium' && (!profile?.plan_expires_at || new Date(profile.plan_expires_at) > new Date());
   const remaining = profile ? Math.max(profile.stamp_quota - profile.stamps_used, 0) : 0;
-  const canStamp = remaining > 0 || isPremium;
+  const canStamp = !profile || remaining > 0 || isPremium;
 
   useEffect(() => {
     (async () => {
