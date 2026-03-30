@@ -78,13 +78,12 @@ export default function StampPage() {
     setLoading(true);
     setError('');
 
+    let uploadedDocumentPath: string | null = null;
+    let uploadedLogoPath: string | null = null;
+
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Tidak terautentikasi');
-
-      // Check quota via RPC
-      const { data: quotaOk } = await supabase.rpc('use_stamp_quota', { uid: user.id });
-      if (!quotaOk) throw new Error('Kuota stamp habis! Silakan beli kuota tambahan.');
 
       const qrCodeId = uuidv4();
       const appUrl = process.env.NEXT_PUBLIC_APP_URL || window.location.origin;
@@ -92,33 +91,40 @@ export default function StampPage() {
       const filePath = `${user.id}/${qrCodeId}.pdf`;
       const { error: upErr } = await supabase.storage.from('documents').upload(filePath, file);
       if (upErr) throw upErr;
+      uploadedDocumentPath = filePath;
 
       let logoUrl: string | null = null;
       if (logo && stampType === 'branded') {
         const lp = `${user.id}/${qrCodeId}-logo.${logo.name.split('.').pop()}`;
         const { error: le } = await supabase.storage.from('logos').upload(lp, logo);
-        if (!le) { const { data: lu } = supabase.storage.from('logos').getPublicUrl(lp); logoUrl = lu.publicUrl; }
+        if (!le) {
+          uploadedLogoPath = lp;
+          const { data: lu } = supabase.storage.from('logos').getPublicUrl(lp);
+          logoUrl = lu.publicUrl;
+        }
       }
 
-      const { error: dbErr } = await supabase.from('documents').insert({
-        user_id: user.id,
-        title,
-        document_number: docNumber || null,
-        description,
-        file_path: filePath,
-        file_name: file.name,
-        content_text: contentText.trim(),
-        qr_code_id: qrCodeId,
-        verification_url: `${appUrl}/?code=${qrCodeId}`,
-        stamp_page: stampPage,
-        stamp_x: stampX,
-        stamp_y: stampY,
-        stamp_type: stampType,
-        brand_name: stampType === 'branded' ? brandName : 'CekDigiSign',
-        brand_logo_url: logoUrl,
-        brand_color: stampType === 'branded' ? brandColor : '#2f8d62',
+      const { error: dbErr } = await supabase.rpc('create_document_with_quota', {
+        p_title: title,
+        p_document_number: docNumber || null,
+        p_description: description || null,
+        p_file_path: filePath,
+        p_file_name: file.name,
+        p_content_text: contentText.trim(),
+        p_qr_code_id: qrCodeId,
+        p_verification_url: `${appUrl}/?code=${qrCodeId}`,
+        p_stamp_page: stampPage,
+        p_stamp_x: stampX,
+        p_stamp_y: stampY,
+        p_stamp_type: stampType,
+        p_brand_name: stampType === 'branded' ? brandName : 'CekDigiSign',
+        p_brand_logo_url: logoUrl,
+        p_brand_color: stampType === 'branded' ? brandColor : '#2f8d62',
       });
       if (dbErr) throw dbErr;
+
+      uploadedDocumentPath = null;
+      uploadedLogoPath = null;
 
       if (stampType === 'branded') {
         await supabase.from('profiles').update({ default_brand_name: brandName, default_brand_color: brandColor }).eq('id', user.id);
@@ -127,6 +133,12 @@ export default function StampPage() {
       setResult({ qrCodeId });
       setStep(4);
     } catch (err: any) {
+      if (uploadedDocumentPath) {
+        await supabase.storage.from('documents').remove([uploadedDocumentPath]);
+      }
+      if (uploadedLogoPath) {
+        await supabase.storage.from('logos').remove([uploadedLogoPath]);
+      }
       setError(err.message || 'Gagal membuat stamp');
     } finally {
       setLoading(false);

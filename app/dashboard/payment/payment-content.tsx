@@ -77,14 +77,12 @@ export default function PaymentContent() {
       const { error: upErr } = await supabase.storage.from('payment-proofs').upload(proofPath, proofFile);
       if (upErr) throw upErr;
 
-      const { data: proofUrl } = supabase.storage.from('payment-proofs').getPublicUrl(proofPath);
-
       // Insert payment record
       const { error: dbErr } = await supabase.from('payments').insert({
         user_id: user.id,
         plan_id: planId,
         amount_idr: plan.price_idr,
-        transfer_proof_url: proofUrl.publicUrl,
+        transfer_proof_url: proofPath,
         transfer_from_name: fromName,
         transfer_from_bank: fromBank,
         transfer_date: new Date().toISOString(),

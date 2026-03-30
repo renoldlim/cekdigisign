@@ -10,10 +10,34 @@ import {
   AlertCircle, ChevronDown, Search
 } from 'lucide-react';
 
+type PaymentRow = any & {
+  proof_signed_url?: string | null;
+};
+
+function getProofPath(value: string | null | undefined) {
+  if (!value) return null;
+  if (!value.startsWith('http')) return value;
+
+  const markers = [
+    '/storage/v1/object/public/payment-proofs/',
+    '/storage/v1/object/sign/payment-proofs/',
+    '/storage/v1/object/authenticated/payment-proofs/',
+  ];
+
+  for (const marker of markers) {
+    const idx = value.indexOf(marker);
+    if (idx >= 0) {
+      return decodeURIComponent(value.slice(idx + marker.length).split('?')[0]);
+    }
+  }
+
+  return null;
+}
+
 export default function AdminPage() {
   const [tab, setTab] = useState<'overview' | 'payments' | 'users'>('overview');
   const [stats, setStats] = useState<any>(null);
-  const [payments, setPayments] = useState<any[]>([]);
+  const [payments, setPayments] = useState<PaymentRow[]>([]);
   const [users, setUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
@@ -41,7 +65,26 @@ export default function AdminPage() {
       .select('*, profiles:user_id(full_name, email, avatar_url), plans:plan_id(name)')
       .order('created_at', { ascending: false })
       .limit(50);
-    if (pays) setPayments(pays);
+    if (pays) {
+      const paysWithProofs = await Promise.all(
+        pays.map(async (pay: any) => {
+          const proofPath = getProofPath(pay.transfer_proof_url);
+          if (!proofPath) return { ...pay, proof_signed_url: null };
+
+          const { data: signedData, error: signedError } = await supabase
+            .storage
+            .from('payment-proofs')
+            .createSignedUrl(proofPath, 60 * 60);
+
+          return {
+            ...pay,
+            proof_signed_url: signedError ? null : signedData.signedUrl,
+          };
+        })
+      );
+
+      setPayments(paysWithProofs);
+    }
 
     // Users
     const { data: u } = await supabase
@@ -208,9 +251,9 @@ export default function AdminPage() {
                         {pay.admin_notes && <p className="text-xs text-ink-500 mt-1 italic">Admin: {pay.admin_notes}</p>}
                       </div>
                       {/* Proof image */}
-                      {pay.transfer_proof_url && (
-                        <a href={pay.transfer_proof_url} target="_blank" className="w-20 h-20 rounded-lg border border-surface-200 overflow-hidden flex-shrink-0 hover:opacity-80 transition-opacity">
-                          <img src={pay.transfer_proof_url} alt="Proof" className="w-full h-full object-cover" />
+                      {pay.proof_signed_url && (
+                        <a href={pay.proof_signed_url} target="_blank" rel="noreferrer" className="w-20 h-20 rounded-lg border border-surface-200 overflow-hidden flex-shrink-0 hover:opacity-80 transition-opacity">
+                          <img src={pay.proof_signed_url} alt="Proof" className="w-full h-full object-cover" />
                         </a>
                       )}
                       {/* Actions */}

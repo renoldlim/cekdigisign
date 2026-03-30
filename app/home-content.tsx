@@ -15,7 +15,7 @@ interface DocResult {
   title: string;
   document_number: string;
   description: string;
-  content_text: string;
+  content_text?: string | null;
   file_name: string;
   brand_name: string;
   brand_logo_url: string | null;
@@ -83,12 +83,17 @@ export default function HomeContent() {
     setError('');
 
     try {
-      await supabase.from('verification_logs').insert({
+      const { data, error: accessError } = await supabase.rpc('access_document_content', {
         document_id: doc.id,
-        email,
-        user_agent: navigator.userAgent,
+        verifier_email: email,
+        verifier_user_agent: navigator.userAgent,
       });
 
+      if (accessError || !data) {
+        throw accessError || new Error('Dokumen tidak tersedia');
+      }
+
+      setDoc(data as DocResult);
       setPhase('verified');
       setTimeout(() => contentRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 200);
     } catch {

@@ -45,6 +45,7 @@ AUTH:
 
 ### 1. Supabase
 - Buat project → SQL Editor → paste `supabase/migration.sql` → Run
+- Untuk project yang sudah live, jalankan juga `supabase/patches/20260330_security_fixes.sql` sebelum redeploy app
 - Enable Google OAuth (Authentication → Providers → Google)
 - Set Site URL: `https://cekdigisign.vercel.app`
 - Redirect URL: `https://cekdigisign.vercel.app/auth/callback`
@@ -53,7 +54,7 @@ AUTH:
 ```bash
 cd cekdigisign
 git init && git add . && git commit -m "v2"
-git remote add origin https://github.com/cekdigisign/cekdigisign.git
+git remote add origin https://github.com/renoldlim/cekdigisign.git
 git push -u origin main
 ```
 Vercel: Import repo → env vars:
